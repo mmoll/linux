@@ -1,0 +1,96 @@
+name: Build VF2 Kernel
+
+permissions:
+  contents: write
+
+on:
+  push:
+    branches: [ "mmoll_JH7110_VisionFive2_upstream" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: tuxmake/riscv_gcc:latest
+      options: --user root
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+      with:
+        ref: mmoll_JH7110_VisionFive2_upstream
+        fetch-depth: 1
+
+    - name: Install dependencies
+      run: apt update && apt install -y build-essential debhelper curl jq unzip
+
+    - name: Set git config options
+      run: git config --global --add safe.directory $(pwd)
+
+    - name: Make visionfive2_docker_defconfig
+      run: |
+        make CROSS_COMPILE=riscv64-linux-gnu- ARCH=riscv visionfive2_docker_defconfig
+
+    - name: Make kernel
+      run: |
+        make CROSS_COMPILE=riscv64-linux-gnu- ARCH=riscv -j`nproc`
+
+    - name: Make modules
+      run: |
+        make CROSS_COMPILE=riscv64-linux-gnu- ARCH=riscv -j`nproc` modules
+
+    - name: Build .deb packages
+      run: |
+        make CROSS_COMPILE=riscv64-linux-gnu- ARCH=riscv -j`nproc` bindeb-pkg
+
+    - name: Copy .deb to /tmp
+      run: |
+        rm -rf /tmp/*
+        cp ../*.deb /tmp/
+
+    - name: Generate release tag
+      id: tag
+      run: |
+        echo "release_tag=$(basename /tmp/linux-image-* | cut -d'_' -f2)-$(date +'%Y.%m.%d_%H-%M')" >> $GITHUB_OUTPUT
+
+    - name: Release
+      id: release1
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        target_commitish: 'mmoll_JH7110_VisionFive2_upstream'
+        body: Automated build of VisionFive 2 kernel .debs for Ubuntu.
+        files: |
+          /tmp/*.deb
+
+    - name: Re-try Release
+      id: release2
+      if: ${{ failure() }}
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        target_commitish: 'mmoll_JH7110_VisionFive2_upstream'
+        body: Automated build of VisionFive 2 kernel .debs for Ubuntu.
+        files: |
+          /tmp/*.deb
+
+    - name: Re-try Release Final
+      id: release3
+      if: ${{ failure() }}
+      uses: softprops/action-gh-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        target_commitish: 'mmoll_JH7110_VisionFive2_upstream'
+        body: Automated build of VisionFive 2 kernel .debs for Ubuntu.
+        files: |
+          /tmp/*.deb
+
+    - name: Check for success
+      if: ${{ failure() && (steps.release1.outcome == 'success' || steps.release2.outcome == 'success' || steps.release3.outcome == 'success') }}
+      run: exit 0
