@@ -59,7 +59,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}_release1
         target_commitish: 'mmoll_JH7110_VisionFive2_upstream'
         body: Automated build of VisionFive 2 kernel .debs for Ubuntu.
         files: |
@@ -72,7 +72,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}_release2
         target_commitish: 'mmoll_JH7110_VisionFive2_upstream'
         body: Automated build of VisionFive 2 kernel .debs for Ubuntu.
         files: |
@@ -85,7 +85,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}_release3
         target_commitish: 'mmoll_JH7110_VisionFive2_upstream'
         body: Automated build of VisionFive 2 kernel .debs for Ubuntu.
         files: |
