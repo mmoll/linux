@@ -651,14 +651,11 @@ static void update_cursor_plane(struct vs_dc *dc, struct vs_plane *plane,
 	struct drm_plane_state *state = drm_atomic_get_new_plane_state(drm_state,
 								       drm_plane);
 	struct vs_plane_state *plane_state = to_vs_plane_state(state);
-	struct drm_framebuffer *drm_fb = state->fb;
 	struct dc_hw_cursor cursor;
 
 	cursor.address = plane_state->dma_addr[0];
 	cursor.x = state->crtc_x;
 	cursor.y = state->crtc_y;
-	cursor.hot_x = drm_fb->hot_x;
-	cursor.hot_y = drm_fb->hot_y;
 	cursor.display_id = to_vs_display_id(dc, state->crtc);
 	update_cursor_size(state, &cursor);
 	cursor.enable = true;
