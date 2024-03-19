@@ -325,35 +325,6 @@
 	};
 };
 
-&i2c6 {
-	clock-frequency = <100000>;
-	i2c-sda-hold-time-ns = <300>;
-	i2c-sda-falling-time-ns = <510>;
-	i2c-scl-falling-time-ns = <510>;
-	pinctrl-names = "default";
-	pinctrl-0 = <&i2c6_pins>;
-	status = "okay";
-
-	imx219: imx219@10 {
-		compatible = "sony,imx219";
-		reg = <0x10>;
-		clocks = <&clk_ext_camera>;
-		reset-gpio = <&sysgpio 18 0>;
-		rotation = <0>;
-		orientation = <1>;
-
-		port {
-			imx219_to_csi2rx: endpoint {
-				remote-endpoint = <&csi2rx_from_imx219>;
-				bus-type = <4>;
-				clock-lanes = <0>;
-				data-lanes = <1 2>;
-				link-frequencies = /bits/ 64 <456000000>;
-			};
-		};
-	};
-};
-
 &i2srx {
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2srx_pins>;
