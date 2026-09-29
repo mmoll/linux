@@ -99,6 +99,14 @@ rogue_slc_init(struct pvr_device *pvr_dev)
 	return 0;
 }
 
+#define RGX_CR_POWER_EVENT 0x0038U
+#define RGX_CR_POWER_EVENT_REQ_EN 0x00000002U
+#define RGX_CR_POWER_EVENT_DOMAIN_CLUSTER0_SHIFT 8U
+#define RGX_CR_POWER_EVENT_DOMAIN_SPU0_SHIFT 9U
+#define GUESS_TYPE_POWER_UP 0x1U
+#define GUESS_BIT10_SHIFT 10U
+#define GUESS_MULTICORE_MASK 0xff000000U
+
 /**
  * pvr_fw_start() - Start FW processor and boot firmware
  * @pvr_dev: Target PowerVR device.
@@ -112,6 +120,7 @@ pvr_fw_start(struct pvr_device *pvr_dev)
 {
 	bool has_reset2 = PVR_HAS_FEATURE(pvr_dev, xe_tpu2);
 	u64 soft_reset_mask;
+	u32 power_event_val;
 	int err;
 
 	if (PVR_HAS_FEATURE(pvr_dev, pbe2_in_xe))
@@ -140,6 +149,24 @@ pvr_fw_start(struct pvr_device *pvr_dev)
 	(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET);
 	if (has_reset2)
 		(void)pvr_cr_read64(pvr_dev, ROGUE_CR_SOFT_RESET2);
+
+	if (pvr_gpu_id_to_packed_bvnc(&pvr_dev->gpu_id) == PVR_PACKED_BVNC(36, 50, 54, 182)) {
+		power_event_val = GUESS_MULTICORE_MASK |
+				  (1U << GUESS_BIT10_SHIFT) |
+				  (1U << RGX_CR_POWER_EVENT_DOMAIN_SPU0_SHIFT) |
+				  (1U << RGX_CR_POWER_EVENT_DOMAIN_CLUSTER0_SHIFT) |
+				  RGX_CR_POWER_EVENT_REQ_EN |
+				  GUESS_TYPE_POWER_UP;
+		pvr_cr_write32(pvr_dev, RGX_CR_POWER_EVENT, power_event_val);
+		err = pvr_cr_poll_reg32(pvr_dev, ROGUE_CR_EVENT_STATUS,
+					ROGUE_CR_EVENT_STATUS_POWER_COMPLETE_EN,
+					ROGUE_CR_EVENT_STATUS_POWER_COMPLETE_EN,
+					POLL_TIMEOUT_USEC);
+		if (err)
+			goto err_reset;
+		pvr_cr_write32(pvr_dev, RGX_CR_POWER_EVENT, 0);
+		pvr_cr_write32(pvr_dev, ROGUE_CR_EVENT_CLEAR, ROGUE_CR_EVENT_STATUS_POWER_COMPLETE_EN);
+	}
 
 	/* Take Rascal and Dust out of reset. */
 	pvr_cr_write64(pvr_dev, ROGUE_CR_SOFT_RESET,
