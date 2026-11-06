@@ -396,7 +396,7 @@ struct inno_hdmi {
 	struct drm_bridge bridge;
 	struct clk *pclk;
 	struct clk *refclk;
-	void __iomem *regs;
+	struct regmap *regmap;
 	struct regmap *grf;
 
 	struct inno_hdmi_i2c *i2c;
@@ -468,14 +468,25 @@ static int inno_hdmi_find_phy_config(struct inno_hdmi *hdmi,
 	return -EINVAL;
 }
 
+static const struct regmap_config inno_hdmi_regmap_config = {
+	.reg_bits = 32,
+	.val_bits = 32,
+	.reg_stride = 4,
+};
+
 static inline u8 hdmi_readb(struct inno_hdmi *hdmi, u16 offset)
 {
-	return readl_relaxed(hdmi->regs + (offset) * 0x04);
+	u32 val;
+
+	if (regmap_read(hdmi->regmap, offset * 4, &val))
+		return 0;
+
+	return val;
 }
 
 static inline void hdmi_writeb(struct inno_hdmi *hdmi, u16 offset, u32 val)
 {
-	writel_relaxed(val, hdmi->regs + (offset) * 0x04);
+	regmap_write(hdmi->regmap, offset * 4, val);
 }
 
 static inline void hdmi_modb(struct inno_hdmi *hdmi, u16 offset,
@@ -1082,6 +1093,7 @@ struct inno_hdmi *inno_hdmi_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct inno_hdmi *hdmi;
+	void __iomem *regs;
 	int irq;
 	int ret;
 
@@ -1097,9 +1109,24 @@ struct inno_hdmi *inno_hdmi_probe(struct platform_device *pdev,
 	hdmi->dev = dev;
 	hdmi->plat_data = plat_data;
 
-	hdmi->regs = devm_platform_ioremap_resource(pdev, 0);
-	if (IS_ERR(hdmi->regs))
-		return ERR_CAST(hdmi->regs);
+	/*
+	 * On platforms where the controller shares a register space with
+	 * other blocks, the parent owns the regmap. Otherwise map our own
+	 * resource.
+	 */
+	if (dev->parent)
+		hdmi->regmap = dev_get_regmap(dev->parent, NULL);
+
+	if (!hdmi->regmap) {
+		regs = devm_platform_ioremap_resource(pdev, 0);
+		if (IS_ERR(regs))
+			return ERR_CAST(regs);
+
+		hdmi->regmap = devm_regmap_init_mmio(dev, regs,
+						     &inno_hdmi_regmap_config);
+		if (IS_ERR(hdmi->regmap))
+			return ERR_CAST(hdmi->regmap);
+	}
 
 	hdmi->pclk = devm_clk_get_enabled(hdmi->dev, "pclk");
 	if (IS_ERR(hdmi->pclk)) {
