@@ -127,7 +127,7 @@ static int inno_hdmi_rockchip_bind(struct device *dev, struct device *master, vo
 
 	dev_set_drvdata(dev, hdmi);
 
-	hdmi->base = inno_hdmi_bind(dev, encoder, plat_data);
+	hdmi->base = inno_hdmi_bind(to_platform_device(dev), encoder, plat_data);
 
 	connector = drm_bridge_connector_init(drm, encoder);
 	if (IS_ERR(connector)) {
